@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor Kindle</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Monitor">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000; color: #fff; height: 100vh;
+      display: flex; flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden; user-select: none;
+    }
+
+    /* LOGIN */
+    #screen-login {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh; gap: 12px;
+    }
+    #screen-login h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
+    #screen-login .sub { font-size: 0.8rem; color: #475569; margin-bottom: 4px; }
+    #screen-login input {
+      width: 300px; padding: 11px 14px;
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 8px;
+      font-size: 1rem; outline: none;
+    }
+    #screen-login input:focus { border-color: #64748b; }
+    #screen-login button {
+      width: 300px; padding: 12px;
+      background: #e2e8f0; color: #0f172a;
+      border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    #screen-login button:hover { background: #fff; }
+    #login-msg { font-size: 0.78rem; color: #f87171; min-height: 1.2em; text-align: center; }
+
+    /* MONITOR */
+    #screen-monitor { display: none; flex-direction: column; height: 100vh; }
+
+    #top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; background: #030712;
+      border-bottom: 1px solid #0f172a;
+      flex-shrink: 0; height: 36px;
+    }
+    #status-indicator { display: flex; align-items: center; gap: 8px; }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #1e293b; flex-shrink: 0; transition: background 0.3s;
+    }
+    #status-dot.aktif { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+    #status-dot.tiada { background: #f59e0b; }
+    #status-dot.error { background: #ef4444; }
+    #status-text { font-size: 0.72rem; color: #475569; }
+    #top-right { display: flex; align-items: center; gap: 12px; }
+    #masa-update-bar { font-size: 0.65rem; color: #1e293b; }
+    #btn-logout-monitor {
+      background: none; border: 1px solid #1e293b; color: #334155;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;
+    }
+    #btn-logout-monitor:hover { border-color: #334155; color: #64748b; }
+
+    /* GAMBAR AREA */
+    #gambar-area {
+      flex: 1; display: flex;
+      align-items: center; justify-content: center;
+      background: #000; overflow: hidden; position: relative;
+    }
+    #gambar-utama {
+      max-width: 100%; max-height: 100%;
+      width: auto; height: auto; object-fit: contain;
+      opacity: 1; transition: opacity 0.25s ease;
+    }
+    #gambar-utama.fade { opacity: 0; }
+
+    /* Berkelip overlay */
+    #blink-overlay {
+      position: absolute; inset: 0;
+      background: #fff;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.1s ease;
+      z-index: 10;
+    }
+    #blink-overlay.blink { opacity: 0.6; }
+
+    /* Label fasa */
+    #fasa-label {
+      position: absolute;
+      top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 1rem; font-weight: 700;
+      letter-spacing: 0.12em;
+      padding: 6px 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.15);
+      pointer-events: none;
+      opacity: 0; transition: opacity 0.3s;
+      white-space: nowrap;
+      z-index: 5;
+    }
+    #fasa-label.visible { opacity: 1; }
+
+    /* Placeholder */
+    #gambar-placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; color: #0f172a;
+      position: absolute; inset: 0;
+    }
+    #gambar-placeholder .ph-icon {
+      width: 80px; height: 80px;
+      border: 2px solid #0f172a; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: #0f172a;
+    }
+    #gambar-placeholder .ph-label { font-size: 0.85rem; color: #1e293b; }
+    #gambar-placeholder .ph-sub { font-size: 0.7rem; color: #0f172a; }
+
+    #masa-update {
+      position: absolute; bottom: 8px; right: 12px;
+      font-size: 0.6rem; color: #0f172a; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="screen-login">
+    <h1>MONITOR KINDLE</h1>
+    <div class="sub">Pantau gambar laci secara masa nyata</div>
+    <input id="inp-email" type="email" placeholder="Email" autocomplete="email">
+    <input id="inp-pass" type="password" placeholder="Kata laluan" autocomplete="current-password">
+    <button id="btn-login">Log Masuk</button>
+    <div id="login-msg"></div>
+  </div>
+
+  <!-- MONITOR -->
+  <div id="screen-monitor">
+    <div id="top-bar">
+      <div id="status-indicator">
+        <div id="status-dot"></div>
+        <span id="status-text">Menunggu...</span>
+      </div>
+      <div id="top-right">
+        <span id="masa-update-bar"></span>
+        <button id="btn-logout-monitor">Keluar</button>
+      </div>
+    </div>
+
+    <div id="gambar-area">
+      <img id="gambar-utama" src="" alt="" style="display:none;">
+      <div id="blink-overlay"></div>
+      <div id="fasa-label"></div>
+      <div id="gambar-placeholder">
+        <div class="ph-icon">[ ]</div>
+        <div class="ph-label">Tiada gambar semasa</div>
+        <div class="ph-sub">Buka laci yang ada gambar di Kindle</div>
+      </div>
+      <div id="masa-update"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyAGLX_xxH_dQ06epX4XCXtuSHN0DwZFMjA",
+      authDomain: "stress-auti-action.firebaseapp.com",
+      projectId: "stress-auti-action",
+      storageBucket: "stress-auti-action.firebasestorage.app",
+      messagingSenderId: "792580618622",
+      appId: "1:792580618622:web:f0efb1d630e795584d5b2f"
+    });
+
+    var db   = firebase.firestore();
+    var auth = firebase.auth();
+    var _unsub = null;
+    var _urlSemasa = '';
+    var _fasaSemasa = '';
+
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        document.getElementById('screen-login').style.display = 'none';
+        document.getElementById('screen-monitor').style.display = 'flex';
+        mulaMonitor(user.uid);
+      } else {
+        if (_unsub) { _unsub(); _unsub = null; }
+        document.getElementById('screen-login').style.display = 'flex';
+        document.getElementById('screen-monitor').style.display = 'none';
+      }
+    });
+
+    document.getElementById('btn-login').onclick = function() {
+      var email = document.getElementById('inp-email').value.trim();
+      var pass  = document.getElementById('inp-pass').value;
+      if (!email || !pass) { document.getElementById('login-msg').textContent = 'Sila isi email dan kata laluan.'; return; }
+      document.getElementById('login-msg').textContent = 'Sedang log masuk...';
+      auth.signInWithEmailAndPassword(email, pass)
+        .catch(function(e) { document.getElementById('login-msg').textContent = e.message; });
+    };
+
+    document.getElementById('inp-pass').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('btn-login').click();
+    });
+
+    document.getElementById('btn-logout-monitor').onclick = function() { auth.signOut(); };
+
+    function mulaMonitor(uid) {
+      var dot       = document.getElementById('status-dot');
+      var statusTxt = document.getElementById('status-text');
+      var img       = document.getElementById('gambar-utama');
+      var ph        = document.getElementById('gambar-placeholder');
+      var masaEl    = document.getElementById('masa-update');
+      var masaBar   = document.getElementById('masa-update-bar');
+      var fasaEl    = document.getElementById('fasa-label');
+      var blinkEl   = document.getElementById('blink-overlay');
+
+      if (_unsub) _unsub();
+
+      _unsub = db.collection('users').doc(uid)
+        .collection('kindle_settings').doc('monitor')
+        .onSnapshot(function(snap) {
+          if (!snap.exists) {
+            dot.className = ''; statusTxt.textContent = 'Kindle belum tersambung';
+            img.style.display = 'none'; ph.style.display = 'flex';
+            fasaEl.className = 'visible'; fasaEl.textContent = '';
+            return;
+          }
+
+          var data    = snap.data();
+          var url     = data.imageUrl || '';
+          var fasa    = data.fasaLabel || '';
+          var blink   = data.blink || false;
+          var ts      = data.updatedAt || 0;
+          var d       = new Date(ts);
+          var masaStr = d.getHours().toString().padStart(2,'0') + ':' +
+                        d.getMinutes().toString().padStart(2,'0') + ':' +
+                        d.getSeconds().toString().padStart(2,'0');
+
+          masaEl.textContent  = masaStr;
+          masaBar.textContent = masaStr;
+
+          // Update label fasa
+          if (fasa !== _fasaSemasa) {
+            _fasaSemasa = fasa;
+            fasaEl.textContent = fasa;
+            fasaEl.className = fasa ? 'visible' : '';
+          }
+
+          // Berkelip bila fasa bertukar
+          if (blink) {
+            blinkEl.classList.add('blink');
+            setTimeout(function() { blinkEl.classList.remove('blink'); }, 200);
+          }
+
+          if (!url) {
+            dot.className = 'tiada';
+            statusTxt.textContent = 'Laci semasa tiada gambar';
+            img.classList.add('fade');
+            setTimeout(function() {
+              img.style.display = 'none'; img.src = '';
+              ph.style.display = 'flex';
+              img.classList.remove('fade');
+              _urlSemasa = '';
+            }, 250);
+            return;
+          }
+
+          if (url === _urlSemasa) return;
+          _urlSemasa = url;
+
+          dot.className = 'aktif';
+          statusTxt.textContent = 'Gambar dikemas kini';
+
+          img.classList.add('fade');
+          setTimeout(function() {
+            img.src = url;
+            img.style.display = 'block';
+            ph.style.display = 'none';
+            img.onload = function() { img.classList.remove('fade'); };
+            img.onerror = function() {
+              img.style.display = 'none'; ph.style.display = 'flex';
+              dot.className = 'error';
+              statusTxt.textContent = 'Gagal muatkan gambar';
+              img.classList.remove('fade');
+            };
+          }, 250);
+
+        }, function(e) {
+          dot.className = 'error';
+          statusTxt.textContent = 'Ralat: ' + e.message;
+        });
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
+    }
+  </script>
+</body>
+</html>
