@@ -214,12 +214,23 @@
       if (e.key === 'Enter') document.getElementById('btn-login').click();
     });
 
-    document.getElementById('btn-next-monitor').onclick = function() {
+    function hantarNextSignal() {
       if (!auth.currentUser) return;
+      var btnNext = document.getElementById('btn-next-monitor');
+      if (!btnNext || btnNext.style.display === 'none') return;
       db.collection('users').doc(auth.currentUser.uid)
         .collection('kindle_settings').doc('monitor')
         .set({ nextSignal: true, monitorTunggu: false }, { merge: true }).catch(function() {});
-    };
+    }
+
+    document.getElementById('btn-next-monitor').onclick = hantarNextSignal;
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        hantarNextSignal();
+      }
+    });
 
     document.getElementById('btn-logout-monitor').onclick = function() { auth.signOut(); };
 
